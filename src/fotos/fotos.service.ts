@@ -3,6 +3,7 @@ import type { Foto } from './entities/foto.entity.js';
 
 @Injectable()
 export class FotosService {
+    private siguienteId = 4;
     private fotos: Foto[] = [
         { id: 1, titulo: 'Malecon', calificacion: 5 },
         { id: 2, titulo: 'Atardecer', calificacion: 4 },
@@ -22,8 +23,19 @@ findOne(id: number): Foto {
 }
 
 create(datos: Omit<Foto, 'id'>): Foto {
-    const nueva = { id : this.fotos.length + 1, ...datos };
+    const nueva = { ...datos, id: this.siguienteId++ };
     this.fotos.push(nueva);
     return nueva;
+}
+
+update(id: number, datos: Partial<Omit<Foto, 'id'>>): Foto {
+    const foto = this.findOne(id);
+    Object.assign(foto, datos, { id });
+    return foto;
+}
+
+remove(id: number): void {
+    const foto = this.findOne(id);
+    this.fotos = this.fotos.filter((f) => f !== foto);
 }
 }
