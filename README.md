@@ -1,3 +1,93 @@
+## Álbum API: ejecución local y reto
+
+La configuración local usa PostgreSQL en Docker en `localhost:5433`. El puerto
+5432 está ocupado también por PostgreSQL de Windows y causaba errores de
+autenticación al intentar usar el contenedor original `pg-album`.
+El contenedor de esta API es `pg-album-api`, con volumen `pg-album-api-data`.
+
+```powershell
+# Si el contenedor ya existe:
+docker start pg-album-api
+
+# Solo en una instalación nueva, si todavía no existe:
+docker run --name pg-album-api -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=album -p 127.0.0.1:5433:5432 -v pg-album-api-data:/var/lib/postgresql -d postgres:18
+
+# Copia .env.example a .env si aún no tienes configuración local.
+npm install
+npm run build
+npm run start:dev
+```
+
+En otra terminal:
+
+```powershell
+Invoke-RestMethod "http://localhost:3000/api/fotos" | ConvertTo-Json -Depth 5
+Invoke-RestMethod "http://localhost:3000/api/fotos/3" | ConvertTo-Json
+```
+
+`npm run seed` reemplaza las fotos existentes por 10 fotos de ejemplo.
+`npm run start:prod` ejecuta la compilación en `dist/main.js`; configura
+`NODE_ENV=production` para desactivar la sincronización automática del esquema.
+En producción se debe preparar el esquema mediante migraciones antes de arrancar.
+
+### Reto: columna opcional, renombrado y CRUD
+
+La entidad `Foto` incluye `fotografo` como columna `text` opcional (`NULL`).
+Se puede enviar en POST y PATCH; omitirla al crear una foto deja el valor en NULL.
+`update` carga la foto, aplica los cambios y llama a `repository.save`.
+`remove` carga la foto y llama a `repository.remove`; ambos devuelven 404 si no existe.
+El controlador espera la eliminación antes de responder con 204.
+
+Ejemplo de creación:
+
+```powershell
+$foto = Invoke-RestMethod -Uri "http://localhost:3000/api/fotos" -Method Post -ContentType "application/json" -Body '{"titulo":"Cerro","calificacion":5,"ruta":"x.jpg","fotografo":"Ana"}'
+Invoke-RestMethod -Uri "http://localhost:3000/api/fotos/$($foto.id)" -Method Patch -ContentType "application/json" -Body '{"fotografo":"Luis"}'
+Invoke-RestMethod -Uri "http://localhost:3000/api/fotos/$($foto.id)" -Method Delete
+```
+
+En pgAdmin, registra una conexión a `localhost`, puerto `5433`, usuario `postgres`,
+contraseña `postgres` y base `album`. En Query Tool:
+
+```sql
+SELECT id, titulo, fotografo FROM public.fotos ORDER BY id;
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'fotos'
+ORDER BY ordinal_position;
+```
+
+Ejecuta la demostración del renombrado con:
+
+```powershell
+npm run reto
+```
+
+El script crea un esquema temporal propio, agrega la columna `autor`, inserta
+`Ana Pérez`, cambia la definición a `fotografo` y aplica `synchronize`.
+Muestra el SQL y los datos antes/después; al terminar elimina su esquema de prueba.
+Las fotos de `public.fotos` no forman parte del experimento.
+
+Resultado comprobado con las dependencias instaladas:
+
+```text
+Antes:    { id: 1, autor: 'Ana Pérez' }
+SQL:      ALTER TABLE ... RENAME COLUMN "autor" TO "fotografo"
+Después:  { id: 1, fotografo: 'Ana Pérez' }
+```
+
+En este caso los valores se conservaron: TypeORM detectó un renombrado simple.
+No se debe afirmar que cambiar el nombre siempre borra los datos. Sin embargo,
+`synchronize` compara el esquema con las entidades sin un historial explícito
+de la intención del cambio. Otros cambios pueden eliminar/recrear columnas,
+perder valores o fallar al convertir tipos. Por eso en producción se desactiva
+y se usan migraciones revisadas, por ejemplo `ALTER TABLE fotos RENAME COLUMN
+autor TO fotografo`, junto con respaldos.
+Referencia: [documentación oficial de NestJS y TypeORM](https://docs.nestjs.com/data/typeorm).
+
+Verificado: compilación y pruebas HTTP de listado, creación, actualización,
+persistencia tras reiniciar la aplicación, eliminación, 404 y parámetro inválido (400).
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>

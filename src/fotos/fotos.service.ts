@@ -1,41 +1,38 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Foto } from './entities/foto.entity.js';
+import { Foto } from './entities/foto.entity.js';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class FotosService {
-    private siguienteId = 4;
-    private fotos: Foto[] = [
-        { id: 1, titulo: 'Malecon', calificacion: 5 },
-        { id: 2, titulo: 'Atardecer', calificacion: 4 },
-        { id: 3, titulo: 'JR', calificacion: 3 }
-    ];
+  constructor(
+    @InjectRepository(Foto)
+    private readonly fotosRepository: Repository<Foto>,
+  ) {}
 
-findAll(): Foto[] {
-    return this.fotos;
-}
+  findAll(): Promise<Foto[]> {
+    return this.fotosRepository.find();
+  }
 
-findOne(id: number): Foto {
-    const foto = this.fotos.find((f) => f.id === id);
-    if (!foto) {
-        throw new NotFoundException(`Foto ${id} no encontrada`);
-    }
+  async findOne(id: number): Promise<Foto> {
+    const foto = await this.fotosRepository.findOneBy({ id });
+    if (!foto) throw new NotFoundException(`Foto ${id} no encontrada`);
     return foto;
-}
+  }
 
-create(datos: Omit<Foto, 'id'>): Foto {
-    const nueva = { ...datos, id: this.siguienteId++ };
-    this.fotos.push(nueva);
-    return nueva;
-}
+  create(datos: Partial<Foto>): Promise<Foto> {
+    const nuevaFoto = this.fotosRepository.create(datos);
+    return this.fotosRepository.save(nuevaFoto);
+  }
 
-update(id: number, datos: Partial<Omit<Foto, 'id'>>): Foto {
-    const foto = this.findOne(id);
+  async update(id: number, datos: Partial<Omit<Foto, 'id'>>): Promise<Foto> {
+    const foto = await this.findOne(id);
     Object.assign(foto, datos, { id });
-    return foto;
-}
+    return this.fotosRepository.save(foto);
+  }
 
-remove(id: number): void {
-    const foto = this.findOne(id);
-    this.fotos = this.fotos.filter((f) => f !== foto);
-}
+  async remove(id: number): Promise<void> {
+    const foto = await this.findOne(id);
+    await this.fotosRepository.remove(foto);
+  }
 }
