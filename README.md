@@ -25,7 +25,9 @@ Invoke-RestMethod "http://localhost:3000/api/fotos" | ConvertTo-Json -Depth 5
 Invoke-RestMethod "http://localhost:3000/api/fotos/3" | ConvertTo-Json
 ```
 
-`npm run seed` reemplaza las fotos existentes por 10 fotos de ejemplo.
+`npm run seed` vacía fotos, álbumes, etiquetas y sus relaciones, reinicia sus ID
+y crea 3 álbumes, 6 etiquetas y 20 fotos con relaciones aleatorias.
+La operación se ejecuta en una transacción para revertirla si falla la carga.
 `npm run start:prod` ejecuta la compilación en `dist/main.js`; configura
 `NODE_ENV=production` para desactivar la sincronización automática del esquema.
 En producción se debe preparar el esquema mediante migraciones antes de arrancar.
