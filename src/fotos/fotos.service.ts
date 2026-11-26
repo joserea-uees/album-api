@@ -13,6 +13,8 @@ export interface FiltroFotos {
   q?: string;
   page?: number;
   limit?: number;
+  etiqueta?: string;
+  orden?: string;
 }
 
 @Injectable()
@@ -28,6 +30,8 @@ export class FotosService {
     q,
     page = 1,
     limit = 10,
+    etiqueta,
+    orden,
   }: FiltroFotos = {}): Promise<{
     data: Foto[];
     total: number;
@@ -51,13 +55,22 @@ export class FotosService {
     if (q !== undefined && typeof q !== 'string') {
       throw new BadRequestException('q debe ser un texto');
     }
+    if (etiqueta !== undefined && typeof etiqueta !== 'string') {
+      throw new BadRequestException('etiqueta debe ser un texto');
+    }
+    if (orden !== undefined && orden !== 'asc' && orden !== 'desc') {
+      throw new BadRequestException('orden debe ser asc o desc');
+    }
     const [data, total] = await this.fotosRepository.findAndCount({
       where: {
         calificacion: Between(min, max),
         ...(q ? { titulo: ILike(`%${q}%`) } : {}),
+        ...(etiqueta ? { etiquetas: { texto: etiqueta } } : {}),
       },
-      relations: { etiquetas: true },
-      order: { id: 'ASC' },
+      relations: { etiquetas: true, album: true },
+      order: orden
+        ? { calificacion: orden === 'asc' ? 'ASC' : 'DESC', id: 'ASC' }
+        : { id: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });
