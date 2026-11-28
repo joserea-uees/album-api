@@ -32,6 +32,39 @@ La operación se ejecuta en una transacción para revertirla si falla la carga.
 `NODE_ENV=production` para desactivar la sincronización automática del esquema.
 En producción se debe preparar el esquema mediante migraciones antes de arrancar.
 
+### Sesión 5: DTOs, validación y errores
+
+`ValidationPipe` valida POST, PATCH y los parámetros de consulta. Rechaza campos
+extra con 400 y transforma los números de la query. El listado conserva `min`,
+`max`, `q`, `page`, `limit`, `etiqueta` y `orden`; `limit` admite de 1 a 50.
+
+POST acepta `titulo` (hasta 100 caracteres), `calificacion` (0 a 5), una URL en
+`ruta` y los opcionales `descripcion`, `fotografo`, `albumId` y `etiquetas`.
+Las etiquetas se envían como textos, se normalizan a minúsculas sin espacios en
+los extremos y se reutilizan si ya existen. Cada texto admite hasta 30 caracteres.
+
+PATCH valida los mismos campos y modifica solo lo recibido. `etiquetas: []`
+quita todas las etiquetas; `albumId: null` deja la foto sin álbum. POST devuelve
+201, PATCH 200 y DELETE 204 sin cuerpo; una foto inexistente devuelve 404.
+El filtro de TypeORM convierte los errores PostgreSQL 23503 en 400 (referencia
+inexistente) y 23505 en 409 (duplicado), y los demás en 500 con mensaje genérico.
+
+Las peticiones de ejemplo están en `api.http`, para la extensión REST Client.
+Primero ejecuta la petición con nombre `crearFoto`: las siguientes reutilizan su ID.
+El ejemplo usa un álbum con ID 2, que puedes ajustar a uno existente.
+
+```powershell
+npm test
+npm run lint
+# Requiere PostgreSQL encendido; crea y elimina solo su esquema temporal:
+npm run test:integration
+```
+
+Las pruebas unitarias importan la compilación para conservar los metadatos de los
+decoradores de TypeScript; `npm test` compila automáticamente antes de Vitest.
+La prueba de integración levanta HTTP en un puerto temporal y comprueba el CRUD
+con relaciones y sus respuestas. No ejecuta el seed ni cambia tus fotos existentes.
+
 ### Reto: columna opcional, renombrado y CRUD
 
 La entidad `Foto` incluye `fotografo` como columna `text` opcional (`NULL`).
@@ -43,7 +76,7 @@ El controlador espera la eliminación antes de responder con 204.
 Ejemplo de creación:
 
 ```powershell
-$foto = Invoke-RestMethod -Uri "http://localhost:3000/api/fotos" -Method Post -ContentType "application/json" -Body '{"titulo":"Cerro","calificacion":5,"ruta":"x.jpg","fotografo":"Ana"}'
+$foto = Invoke-RestMethod -Uri "http://localhost:3000/api/fotos" -Method Post -ContentType "application/json" -Body '{"titulo":"Cerro","calificacion":5,"ruta":"https://example.com/x.jpg","fotografo":"Ana"}'
 Invoke-RestMethod -Uri "http://localhost:3000/api/fotos/$($foto.id)" -Method Patch -ContentType "application/json" -Body '{"fotografo":"Luis"}'
 Invoke-RestMethod -Uri "http://localhost:3000/api/fotos/$($foto.id)" -Method Delete
 ```

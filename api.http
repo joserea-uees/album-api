@@ -1,0 +1,63 @@
+@api = http://localhost:3000/api
+@albumId = 2
+
+### Listar con filtros y paginación
+GET {{api}}/fotos?min=3&max=5&q=foto&page=1&limit=5
+
+### Conservar filtro por etiqueta y orden
+GET {{api}}/fotos?etiqueta=playa&orden=desc
+
+### Validación de query: 400
+GET {{api}}/fotos?limit=999
+
+### Crear foto con relaciones (201)
+# @name crearFoto
+POST {{api}}/fotos
+Content-Type: application/json
+
+{
+  "titulo": "Cerro Santa Ana",
+  "calificacion": 4.8,
+  "ruta": "https://picsum.photos/id/1/600/400",
+  "albumId": {{albumId}},
+  "etiquetas": ["Ciudad", "faro"]
+}
+
+### Consultar la foto creada
+GET {{api}}/fotos/{{crearFoto.response.body.$.id}}
+
+### Datos inválidos y campo extra: 400 con lista de errores
+POST {{api}}/fotos
+Content-Type: application/json
+
+{"titulo":"","calificacion":9,"ruta":"no-url","hack":1}
+
+### Álbum inexistente: 400 por clave foránea
+POST {{api}}/fotos
+Content-Type: application/json
+
+{"titulo":"Prueba FK","calificacion":4,"ruta":"https://example.com/foto.jpg","albumId":2147483647}
+
+### Actualizar solo la calificación
+PATCH {{api}}/fotos/{{crearFoto.response.body.$.id}}
+Content-Type: application/json
+
+{"calificacion":2.5}
+
+### Reemplazar etiquetas
+PATCH {{api}}/fotos/{{crearFoto.response.body.$.id}}
+Content-Type: application/json
+
+{"etiquetas":[" Playa ","noche","playa"]}
+
+### Vaciar etiquetas y quitar álbum
+PATCH {{api}}/fotos/{{crearFoto.response.body.$.id}}
+Content-Type: application/json
+
+{"etiquetas":[],"albumId":null}
+
+### Eliminar: 204 sin cuerpo
+DELETE {{api}}/fotos/{{crearFoto.response.body.$.id}}
+
+### Tras eliminar: 404
+GET {{api}}/fotos/{{crearFoto.response.body.$.id}}
