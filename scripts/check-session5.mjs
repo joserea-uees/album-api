@@ -2,7 +2,8 @@ import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
-import { Module, ValidationPipe } from '@nestjs/common';
+import { Module } from '@nestjs/common';
+import { createValidationPipe } from '../dist/common/validation.pipe.js';
 import { NestFactory } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -45,13 +46,7 @@ try {
   })(TestModule);
   app = await NestFactory.create(TestModule, { logger: false });
   app.setGlobalPrefix('api');
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
+  app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new TypeOrmExceptionFilter());
   await app.listen(0, '127.0.0.1');
   const base = `${await app.getUrl()}/api`;
@@ -88,7 +83,7 @@ try {
     hack: 1,
   });
   assert.equal(response.status, 400);
-  assert.ok(response.body.message.includes('property hack should not exist'));
+  assert.ok(response.body.message.includes('El campo hack no está permitido'));
   response = await request('/fotos', 'POST', { ...valid, albumId: 2147483647 });
   assert.equal(response.status, 400);
   assert.equal(response.body.message, 'Referencia a un registro inexistente');
@@ -148,8 +143,71 @@ try {
     `SELECT COUNT(*)::int AS total FROM "${schema}".fotos_etiquetas`,
   );
   assert.equal(links[0].total, 0);
+  response = await request('/albumes', 'POST', {
+    nombre: '  Álbum del reto  ',
+  });
+  assert.equal(response.status, 201);
+  const retoAlbumId = response.body.id;
+  assert.equal(response.body.nombre, 'Álbum del reto');
+  assert.equal((await request(`/albumes/${retoAlbumId}`)).status, 200);
+  response = await request('/albumes', 'POST', { nombre: 'Álbum del reto' });
+  assert.equal(response.status, 409);
+  assert.equal(response.body.message, 'El registro ya existe');
+  response = await request(`/albumes/${retoAlbumId}`, 'PATCH', {
+    nombre: album.nombre,
+  });
+  assert.equal(response.status, 409);
+  response = await request(`/albumes/${retoAlbumId}`, 'PATCH', {
+    nombre: 'Álbum editado',
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.body.nombre, 'Álbum editado');
+  for (const body of [
+    { nombre: '' },
+    { nombre: ' ' },
+    { nombre: 'x'.repeat(81) },
+    { nombre: null },
+    { nombre: 7 },
+    { nombre: 'Otro', hack: 1 },
+  ]) {
+    response = await request('/albumes', 'POST', body);
+    assert.equal(response.status, 400);
+    assert.ok(Array.isArray(response.body.message));
+  }
+  response = await request(`/albumes/${retoAlbumId}`, 'PATCH', {
+    nombre: null,
+  });
+  assert.equal(response.status, 400);
+  response = await request('/fotos', 'POST', {
+    ...valid,
+    albumId: retoAlbumId,
+    etiquetas: ['ciudad'],
+  });
+  assert.equal(response.status, 201);
+  const fotoConAlbumId = response.body.id;
+  response = await request(`/albumes/${retoAlbumId}/fotos`);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.fotos[0].id, fotoConAlbumId);
+  response = await request(`/albumes/${retoAlbumId}`, 'DELETE');
+  assert.equal(response.status, 204);
+  assert.equal(response.text, '');
+  response = await request(`/fotos/${fotoConAlbumId}`);
+  assert.equal(response.status, 200);
+  assert.equal(response.body.album, null);
+  assert.equal(response.body.etiquetas[0].texto, 'ciudad');
+  assert.equal((await request(`/albumes/${retoAlbumId}`)).status, 404);
+  assert.equal((await request(`/albumes/${retoAlbumId}/fotos`)).status, 404);
+  assert.equal(
+    (await request(`/albumes/${retoAlbumId}`, 'PATCH', { nombre: 'No existe' }))
+      .status,
+    404,
+  );
+  assert.equal(
+    (await request(`/albumes/${retoAlbumId}`, 'DELETE')).status,
+    404,
+  );
   console.log(
-    'OK: HTTP 201/200/204/400/404, DTOs, relaciones, filtros, PATCH parcial y limpieza de enlaces.',
+    'OK: CRUD fotos y álbumes; HTTP 201/200/204/400/404/409; mensajes en español; fotos conservadas con SET NULL.',
   );
 } finally {
   if (app) await app.close();

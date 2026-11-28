@@ -65,6 +65,24 @@ decoradores de TypeScript; `npm test` compila automáticamente antes de Vitest.
 La prueba de integración levanta HTTP en un puerto temporal y comprueba el CRUD
 con relaciones y sus respuestas. No ejecuta el seed ni cambia tus fotos existentes.
 
+### Reto de sesión 5: CRUD de álbumes
+
+`POST /api/albumes` crea un álbum con `{ "nombre": "Viajes" }` y devuelve 201.
+`GET /api/albumes/:id` consulta un álbum; `PATCH /api/albumes/:id` modifica su
+nombre y `DELETE /api/albumes/:id` responde 204 sin cuerpo. Las rutas anteriores
+de listado y fotos de un álbum siguen disponibles. Un ID inexistente devuelve 404.
+
+El nombre es obligatorio, se recortan sus espacios exteriores y admite hasta 80
+caracteres. La columna es única: duplicar un nombre al crear o editar devuelve 409
+mediante el filtro de PostgreSQL. Al borrar un álbum, `ON DELETE SET NULL` conserva
+sus fotos y etiquetas. Los DTOs de fotos, consultas y álbumes tienen mensajes de
+validación en español, incluidos los errores por campos extra.
+
+`api.http` incluye las peticiones para reproducir el reto. `npm run test:integration`
+comprueba el CRUD, los duplicados y la conservación de fotos en un esquema temporal.
+En desarrollo el índice único se aplica al arrancar con `synchronize`; si ya hay
+nombres exactamente duplicados, habrá que resolverlos antes de aplicar la restricción.
+
 ### Reto: columna opcional, renombrado y CRUD
 
 La entidad `Foto` incluye `fotografo` como columna `text` opcional (`NULL`).

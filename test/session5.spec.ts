@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { describe, expect, it, vi } from 'vitest';
-import { ValidationPipe } from '@nestjs/common';
+import { createValidationPipe } from '../dist/common/validation.pipe.js';
 import type { ArgumentsHost } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import type { Repository } from 'typeorm';
@@ -12,11 +12,7 @@ import { Foto } from '../dist/fotos/entities/foto.entity.js';
 import { Etiqueta } from '../dist/fotos/entities/etiqueta.entity.js';
 import { TypeOrmExceptionFilter } from '../dist/common/typeorm-exception.filter.js';
 
-const pipe = new ValidationPipe({
-  whitelist: true,
-  forbidNonWhitelisted: true,
-  transform: true,
-});
+const pipe = createValidationPipe();
 const valid = {
   titulo: 'Cerro Santa Ana',
   calificacion: 4.8,
@@ -64,10 +60,10 @@ describe('DTOs de fotos', () => {
       ).getResponse();
       expect(response.message).toEqual(
         expect.arrayContaining([
-          'property hack should not exist',
-          'titulo should not be empty',
-          'calificacion must not be greater than 5',
-          'ruta must be a URL address',
+          'El campo hack no está permitido',
+          'El título es obligatorio',
+          'La calificación no debe superar 5',
+          'La ruta debe ser una URL válida',
         ]),
       );
     }

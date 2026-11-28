@@ -1,6 +1,53 @@
 @api = http://localhost:3000/api
 @albumId = 2
 
+### Crear álbum (201)
+# @name crearAlbum
+POST {{api}}/albumes
+Content-Type: application/json
+
+{"nombre":"Álbum de prueba del reto"}
+
+### Repetir el nombre: 409
+POST {{api}}/albumes
+Content-Type: application/json
+
+{"nombre":"Álbum de prueba del reto"}
+
+### Consultar álbum
+GET {{api}}/albumes/{{crearAlbum.response.body.$.id}}
+
+### Actualizar álbum (200)
+PATCH {{api}}/albumes/{{crearAlbum.response.body.$.id}}
+Content-Type: application/json
+
+{"nombre":"Álbum del reto editado"}
+
+### Nombre inválido: 400 en español
+POST {{api}}/albumes
+Content-Type: application/json
+
+{"nombre":" "}
+
+### Crear foto en el álbum del reto
+# @name fotoDelReto
+POST {{api}}/fotos
+Content-Type: application/json
+
+{"titulo":"Foto del reto","calificacion":4,"ruta":"https://example.com/reto.jpg","albumId":{{crearAlbum.response.body.$.id}}}
+
+### Consultar el álbum con sus fotos
+GET {{api}}/albumes/{{crearAlbum.response.body.$.id}}/fotos
+
+### Borrar álbum (204): sus fotos se conservan
+DELETE {{api}}/albumes/{{crearAlbum.response.body.$.id}}
+
+### La foto sigue existiendo con album: null
+GET {{api}}/fotos/{{fotoDelReto.response.body.$.id}}
+
+### Limpiar la foto de prueba
+DELETE {{api}}/fotos/{{fotoDelReto.response.body.$.id}}
+
 ### Listar con filtros y paginación
 GET {{api}}/fotos?min=3&max=5&q=foto&page=1&limit=5
 
